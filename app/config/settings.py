@@ -39,5 +39,5 @@ def get_settings() -> Settings:
             "FUNASR_VAD_MODEL_DIR",
             "models/VADmodels/speech_fsmn_vad_zh-cn-16k-common-pytorch",
         ),
-        device=os.getenv("ASR_DEVICE", "cuda:0"),
+        device=os.getenv("ASR_DEVICE", "cuda:1"),
     )

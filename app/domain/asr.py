@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Literal
-
 from pydantic import BaseModel
+
 
 MODE_DIRECT: Literal["direct"] = "direct"
 MODE_VAD: Literal["vad"] = "vad"
@@ -18,3 +18,4 @@ class FileItem:
 class AsrResponse(BaseModel):
     text: str
     mode: Mode
+

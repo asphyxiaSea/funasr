@@ -1,5 +1,5 @@
-from app.domain.loaders.funasr_loader import ModelBundle
-from app.domain.schemas.asr import AsrResponse, FileItem, Mode, MODE_VAD
+from app.domain.asr import AsrResponse, FileItem, Mode, MODE_VAD
+from app.domain.funasr_loader import ModelBundle
 
 
 def infer_from_file_item(

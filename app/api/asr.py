@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from app.domain.schemas.asr import AsrResponse, FileItem, Mode, MODE_DIRECT
+from app.domain.asr import AsrResponse, FileItem, Mode, MODE_DIRECT
 from app.service.asr_service import transcribe_from_file_item, transcribe_from_path
 
 api_router = APIRouter()
