@@ -33,11 +33,11 @@ def get_settings() -> Settings:
         ),
         funasr_asr_model_dir=os.getenv(
             "FUNASR_ASR_MODEL_DIR",
-            "models/ASRmodels/speech_paraformer-large-vad-punc_asr_nat-zh-cn-16k-common-vocab8404-pytorch",
+            "models/ASRmodels/paraformer-zh",
         ),
         funasr_vad_model_dir=os.getenv(
             "FUNASR_VAD_MODEL_DIR",
-            "models/VADmodels/speech_fsmn_vad_zh-cn-16k-common-pytorch",
+            "models/VADmodels/speech_fsmn_vad_zh",
         ),
         device=os.getenv("ASR_DEVICE", "cuda:1"),
     )
