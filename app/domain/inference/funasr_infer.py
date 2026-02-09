@@ -8,7 +8,7 @@ def infer_from_file_item(
     mode: Mode,
 ) -> AsrResponse:
     if mode == MODE_VAD:
-        text = _transcribe_vad_bytes(bundle, file_item.data)
+        text = _transcribe_funasr_bytes(bundle, file_item.data)
     else:
         text = _transcribe_direct_bytes(bundle, file_item.data)
     return AsrResponse(text=text, mode=mode)
@@ -20,7 +20,7 @@ def infer_from_path(
     mode: Mode,
 ) -> AsrResponse:
     if mode == MODE_VAD:
-        text = _transcribe_vad_path(bundle, wav_path)
+        text = _transcribe_funasr_path(bundle, wav_path)
     else:
         text = _transcribe_direct_path(bundle, wav_path)
     return AsrResponse(text=text, mode=mode)
@@ -31,8 +31,8 @@ def _transcribe_direct_bytes(bundle: ModelBundle, data: bytes) -> str:
     return res[0][0]["text"]
 
 
-def _transcribe_vad_bytes(bundle: ModelBundle, data: bytes) -> str:
-    res = bundle.vad_model.generate(input=[data], cache={}, batch_size=1)
+def _transcribe_funasr_bytes(bundle: ModelBundle, data: bytes) -> str:
+    res = bundle.funasr_model.generate(input=[data], cache={}, batch_size=1)
     return res[0]["text"]
 
 
@@ -41,6 +41,6 @@ def _transcribe_direct_path(bundle: ModelBundle, wav_path: str) -> str:
     return res[0][0]["text"]
 
 
-def _transcribe_vad_path(bundle: ModelBundle, wav_path: str) -> str:
-    res = bundle.vad_model.generate(input=[wav_path], cache={}, batch_size=1)
+def _transcribe_funasr_path(bundle: ModelBundle, wav_path: str) -> str:
+    res = bundle.funasr_model.generate(input=[wav_path], cache={}, batch_size=1)
     return res[0]["text"]

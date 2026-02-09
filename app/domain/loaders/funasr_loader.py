@@ -12,7 +12,7 @@ from app.config.settings import Settings
 class ModelBundle:
     direct_model: Any
     direct_kwargs: Dict[str, Any]
-    vad_model: AutoModel
+    funasr_model: AutoModel
 
 
 def _ensure_funasr_path(funasr_dir: Path) -> None:
@@ -28,13 +28,13 @@ def load_models(settings: Settings) -> ModelBundle:
 
     direct_model, direct_kwargs = cast(
         tuple[FunASRNano, Dict[str, Any]],
-        FunASRNano.from_pretrained(model=settings.direct_model_dir, device=settings.device),
+        FunASRNano.from_pretrained(model=settings.direct_asr_model_dir, device=settings.device),
     )
     direct_model.eval()
 
-    vad_model = AutoModel(
-        model=settings.asr_vad_model_dir,
-        vad_model=settings.vad_model_dir,
+    funasr_model = AutoModel(
+        model=settings.funasr_asr_model_dir,
+        vad_model=settings.funasr_vad_model_dir,
         vad_kwargs={"max_single_segment_time": 30000},
         device=settings.device,
         disable_update=True,
@@ -43,5 +43,5 @@ def load_models(settings: Settings) -> ModelBundle:
     return ModelBundle(
         direct_model=direct_model,
         direct_kwargs=direct_kwargs,
-        vad_model=vad_model,
+        funasr_model=funasr_model,
     )
