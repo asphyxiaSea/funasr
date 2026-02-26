@@ -16,6 +16,10 @@ class Settings:
     funasr_asr_model_dir: str
     # funasr_vad模型
     funasr_vad_model_dir: str
+    # funasr_punc模型
+    funasr_punc_model_dir: str
+    # funasr_spk模型
+    funasr_spk_model_dir: str
     device: str
 
 
@@ -38,6 +42,14 @@ def get_settings() -> Settings:
         funasr_vad_model_dir=os.getenv(
             "FUNASR_VAD_MODEL_DIR",
             "models/VADmodels/speech_fsmn_vad_zh",
+        ),
+        funasr_punc_model_dir=os.getenv(
+            "FUNASR_PUNC_MODEL_DIR",
+            "models/PUNCmodels/ct-punc",
+        ),
+        funasr_spk_model_dir=os.getenv(
+            "FUNASR_SPK_MODEL_DIR",
+            "models/SPKmodels/cam++",
         ),
         device=os.getenv("ASR_DEVICE", "cuda:1"),
     )
