@@ -1,6 +1,5 @@
-from app.domain.asr import AsrResponse, FileItem, Mode
-from app.domain.funasr_infer import infer_from_file_item, infer_from_path
-from app.domain.funasr_loader import ModelBundle
+from app.domain import AsrResponse, FileItem, Mode, ModelBundle
+from app.domain import infer_from_file_item, infer_from_path
 
 _model_bundle: ModelBundle | None = None
 
