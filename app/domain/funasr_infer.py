@@ -1,7 +1,7 @@
 from pathlib import Path
 import tempfile
 
-from app.domain.asr import AsrResponse, FileItem, Mode, MODE_VAD
+from app.domain.asr import AsrResponse, FileItem, Mode, MODE_FUNASR
 from app.domain.funasr_loader import ModelBundle
 
 
@@ -26,7 +26,7 @@ def infer_from_path(
     wav_path: str,
     mode: Mode,
 ) -> AsrResponse:
-    if mode == MODE_VAD:
+    if mode == MODE_FUNASR:
         text = _transcribe_funasr_path(bundle, wav_path)
     else:
         text = _transcribe_direct_path(bundle, wav_path)

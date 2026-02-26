@@ -3,9 +3,9 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-MODE_DIRECT: Literal["direct"] = "direct"
-MODE_VAD: Literal["vad"] = "vad"
-Mode = Literal["direct", "vad"]
+MODE_ONLY_ASR: Literal["only_asr"] = "only_asr"
+MODE_FUNASR: Literal["funasr"] = "funasr"
+Mode = Literal["only_asr", "funasr"]
 
 
 @dataclass(frozen=True)

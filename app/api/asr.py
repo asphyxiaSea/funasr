@@ -2,7 +2,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 
-from app.domain.asr import AsrResponse, FileItem, Mode, MODE_DIRECT
+from app.domain.asr import AsrResponse, FileItem, Mode, MODE_ONLY_ASR
 from app.service.asr_service import transcribe_from_file_item, transcribe_from_path
 
 api_router = APIRouter()
@@ -11,7 +11,7 @@ api_router = APIRouter()
 @api_router.get("/funasr/transcribe/path", response_model=AsrResponse)
 def asr_path(
     wav_path: str,
-    mode: Mode = Query(MODE_DIRECT),
+    mode: Mode = Query(MODE_ONLY_ASR),
 ) -> AsrResponse:
     if not Path(wav_path).is_file():
         raise HTTPException(status_code=404, detail="wav_path not found")
@@ -21,7 +21,7 @@ def asr_path(
 @api_router.post("/funasr/transcribe", response_model=AsrResponse)
 async def asr_upload(
     file: UploadFile = File(...),
-    mode: Mode = Query(MODE_DIRECT),
+    mode: Mode = Query(MODE_ONLY_ASR),
 ) -> AsrResponse:
     data = await file.read()
     if not data:
