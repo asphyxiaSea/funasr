@@ -39,5 +39,5 @@ def _transcribe_direct_path(bundle: ModelBundle, wav_path: str) -> str:
 
 
 def _transcribe_funasr_path(bundle: ModelBundle, wav_path: str) -> str:
-    res = bundle.funasr_model.generate(input=[wav_path], cache={}, batch_size=1)
+    res = bundle.funasr_model.generate(input=[wav_path], cache={}, batch_size_s=300, batch_size_threshold_s=60)
     return res[0]["text"]

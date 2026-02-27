@@ -37,7 +37,7 @@ def load_models(settings: Settings) -> ModelBundle:
         vad_model=settings.funasr_vad_model_dir,
         vad_kwargs={"max_single_segment_time": 30000},
         punc_model=settings.funasr_punc_model_dir,
-        # spk_model=settings.funasr_spk_model_dir,
+        spk_model=settings.funasr_spk_model_dir,
         device=settings.device,
         disable_update=True,
     )
