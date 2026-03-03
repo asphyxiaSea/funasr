@@ -1,7 +1,6 @@
 from typing import Literal
-from pydantic import BaseModel
 
-from app.domain.file_item import FileItem
+from pydantic import BaseModel
 
 
 MODE_ONLY_ASR: Literal["only_asr"] = "only_asr"
@@ -13,3 +12,6 @@ class AsrResponse(BaseModel):
     text: str
     mode: Mode
 
+
+class SpeakerEmbeddingResponse(BaseModel):
+    embedding_b64: str

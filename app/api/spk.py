@@ -2,8 +2,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from app.api.schemas import SpeakerEmbeddingResponse
 from app.domain.file_item import FileItem
-from app.domain.spk import SpeakerEmbeddingResponse
 from app.service.spk_service import infer_from_file_item, infer_from_path
 
 api_router = APIRouter()

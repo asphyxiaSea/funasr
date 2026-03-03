@@ -1,4 +1,5 @@
-from app.domain import AsrResponse, FileItem, Mode, ModelBundle
+from app.api.schemas import AsrResponse, Mode
+from app.domain import FileItem, ModelBundle
 from app.domain import infer_from_file_item, infer_from_path
 
 _model_bundle: ModelBundle | None = None

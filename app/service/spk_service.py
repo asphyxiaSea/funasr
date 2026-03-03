@@ -9,9 +9,9 @@ import torch
 import torch.nn.functional as F
 from funasr import AutoModel
 
+from app.api.schemas import SpeakerEmbeddingResponse
 from app.config.settings import get_settings
 from app.domain.file_item import FileItem
-from app.domain.spk import SpeakerEmbeddingResponse
 
 
 def _embedding_to_base64(embedding: torch.Tensor) -> str:

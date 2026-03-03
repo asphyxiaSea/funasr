@@ -1,7 +1,8 @@
 from pathlib import Path
 import tempfile
 
-from app.domain.asr import AsrResponse, FileItem, Mode, MODE_FUNASR
+from app.api.schemas import AsrResponse, Mode, MODE_FUNASR
+from app.domain.file_item import FileItem
 from app.domain.funasr_loader import ModelBundle
 
 
