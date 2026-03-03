@@ -1,10 +1,21 @@
+from pathlib import Path
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.domain.file_item import FileItem
 from app.domain.spk import SpeakerEmbeddingResponse
-from app.service.spk_service import infer_from_file_item
+from app.service.spk_service import infer_from_file_item, infer_from_path
 
 api_router = APIRouter()
+
+
+@api_router.get("/funasr/spk/embedding/path", response_model=SpeakerEmbeddingResponse)
+def create_speaker_embedding_path(
+    wav_path: str,
+) -> SpeakerEmbeddingResponse:
+    if not Path(wav_path).is_file():
+        raise HTTPException(status_code=404, detail="wav_path not found")
+    return infer_from_path(wav_path)
 
 
 @api_router.post("/funasr/spk/embedding", response_model=SpeakerEmbeddingResponse)

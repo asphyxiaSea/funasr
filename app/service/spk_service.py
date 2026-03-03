@@ -38,6 +38,10 @@ def _infer_path(wav_path: str) -> SpeakerEmbeddingResponse:
     return SpeakerEmbeddingResponse(embedding_b64=b64)
 
 
+def infer_from_path(wav_path: str) -> SpeakerEmbeddingResponse:
+    return _infer_path(wav_path)
+
+
 def infer_from_file_item(file_item: FileItem) -> SpeakerEmbeddingResponse:
     suffix = Path(file_item.filename).suffix or ".wav"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
