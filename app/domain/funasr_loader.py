@@ -1,7 +1,5 @@
 from dataclasses import dataclass
-from pathlib import Path
-import sys
-from typing import Any, Dict, cast
+from typing import Dict
 
 from funasr import AutoModel
 
@@ -10,28 +8,12 @@ from app.config.settings import Settings
 
 @dataclass(frozen=True)
 class ModelBundle:
-    direct_model: Any
-    direct_kwargs: Dict[str, Any]
     funasr_model: AutoModel
-
-
-def _ensure_funasr_path(funasr_dir: Path) -> None:
-    path_str = str(funasr_dir)
-    if path_str not in sys.path:
-        sys.path.append(path_str)
+    streaming_funasr_model: AutoModel | None
+    streaming_kwargs: Dict[str, object]
 
 
 def load_models(settings: Settings) -> ModelBundle:
-    _ensure_funasr_path(settings.funasr_dir)
-
-    from FunASR.model import FunASRNano
-
-    direct_model, direct_kwargs = cast(
-        tuple[FunASRNano, Dict[str, Any]],
-        FunASRNano.from_pretrained(model=settings.direct_asr_model_dir, device=settings.device),
-    )
-    direct_model.eval()
-
     funasr_model = AutoModel(
         model=settings.funasr_asr_model_dir,
         vad_model=settings.funasr_vad_model_dir,
@@ -42,8 +24,22 @@ def load_models(settings: Settings) -> ModelBundle:
         disable_update=True,
     )
 
+    streaming_funasr_model: AutoModel | None = None
+    if settings.funasr_stream_asr_model_dir:
+        streaming_funasr_model = AutoModel(
+            model=settings.funasr_stream_asr_model_dir,
+            device=settings.device,
+            disable_update=True,
+        )
+
+    streaming_kwargs: Dict[str, object] = {
+        "chunk_size": settings.streaming_chunk_size,
+        "encoder_chunk_look_back": settings.streaming_encoder_chunk_look_back,
+        "decoder_chunk_look_back": settings.streaming_decoder_chunk_look_back,
+    }
+
     return ModelBundle(
-        direct_model=direct_model,
-        direct_kwargs=direct_kwargs,
         funasr_model=funasr_model,
+        streaming_funasr_model=streaming_funasr_model,
+        streaming_kwargs=streaming_kwargs,
     )

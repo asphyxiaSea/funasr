@@ -3,9 +3,8 @@ from typing import Literal
 from pydantic import BaseModel
 
 
-MODE_ONLY_ASR: Literal["only_asr"] = "only_asr"
 MODE_FUNASR: Literal["funasr"] = "funasr"
-Mode = Literal["only_asr", "funasr"]
+Mode = Literal["funasr"]
 
 
 class AsrResponse(BaseModel):
@@ -13,5 +12,18 @@ class AsrResponse(BaseModel):
     mode: Mode
 
 
+class AsrStreamEvent(BaseModel):
+    type: Literal["partial", "final", "error"]
+    text: str
+    mode: Mode = MODE_FUNASR
+    is_final: bool = False
+
+
 class SpeakerEmbeddingResponse(BaseModel):
     embedding_b64: str
+
+
+class HealthResponse(BaseModel):
+    status: Literal["ok", "degraded"]
+    ready: bool
+    detail: str | None = None
