@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from app.api.schemas import AsrResponse, MODE_FUNASR
+from app.api.schemas import AsrResponse
 from app.domain.file_item import FileItem
 from app.domain.funasr_loader import ModelBundle
 
@@ -96,7 +96,7 @@ def infer_from_path(
     wav_path: str,
 ) -> AsrResponse:
     text = _transcribe_funasr_path(bundle, wav_path)
-    return AsrResponse(text=text, mode=MODE_FUNASR)
+    return AsrResponse(text=text)
 
 
 def _transcribe_funasr_path(bundle: ModelBundle, wav_path: str) -> str:

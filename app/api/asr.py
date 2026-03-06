@@ -4,7 +4,7 @@ import json
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
-from app.api.schemas import AsrResponse, AsrStreamEvent, MODE_FUNASR
+from app.api.schemas import AsrResponse, AsrStreamEvent
 from app.config.settings import get_settings
 from app.domain.file_item import FileItem
 from app.service.asr_service import create_pcm16_stream_session, transcribe_from_file_item, transcribe_from_path
@@ -77,22 +77,22 @@ async def asr_stream_pcm16(
                 text = session.feed(chunk)
                 if text:
                     yield _format_sse(
-                        AsrStreamEvent(type="partial", text=text, mode=MODE_FUNASR, is_final=False),
+                        AsrStreamEvent(type="partial", text=text, is_final=False),
                     )
 
             if not received_any:
                 yield _format_sse(
-                    AsrStreamEvent(type="error", text="empty stream", mode=MODE_FUNASR, is_final=True),
+                    AsrStreamEvent(type="error", text="empty stream", is_final=True),
                 )
                 return
 
             final_text = session.finalize()
             yield _format_sse(
-                AsrStreamEvent(type="final", text=final_text, mode=MODE_FUNASR, is_final=True),
+                AsrStreamEvent(type="final", text=final_text, is_final=True),
             )
         except Exception as exc:
             yield _format_sse(
-                AsrStreamEvent(type="error", text=str(exc), mode=MODE_FUNASR, is_final=True),
+                AsrStreamEvent(type="error", text=str(exc), is_final=True),
             )
 
     return StreamingResponse(
