@@ -1,10 +1,12 @@
 from pathlib import Path
-import json
+import tempfile
+from typing import Literal
+import wave
 
-from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from pydantic import ValidationError
 
-from app.api.schemas import AsrResponse, AsrStreamEvent
+from app.api.schemas import AsrResponse, AsrStreamEvent, AsrWsControl
 from app.config.settings import get_settings
 from app.domain.file_item import FileItem
 from app.service.asr_service import create_pcm16_stream_session, transcribe_from_file_item, transcribe_from_path
@@ -12,9 +14,26 @@ from app.service.asr_service import create_pcm16_stream_session, transcribe_from
 api_router = APIRouter()
 
 
-def _format_sse(event: AsrStreamEvent) -> bytes:
-    payload = json.dumps(event.model_dump(), ensure_ascii=False)
-    return f"event: {event.type}\ndata: {payload}\n\n".encode("utf-8")
+def _pcm_to_wav(pcm_path: Path, wav_path: Path, sample_rate: int, channels: int) -> None:
+    with wave.open(str(wav_path), "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        with pcm_path.open("rb") as pcm_file:
+            while True:
+                chunk = pcm_file.read(4096)
+                if not chunk:
+                    break
+                wf.writeframes(chunk)
+
+
+EventType = Literal["partial", "final", "full", "error"]
+
+
+async def _send_ws_event(websocket: WebSocket, event_type: EventType, text: str, is_final: bool) -> None:
+    await websocket.send_json(
+        AsrStreamEvent(type=event_type, text=text, is_final=is_final).model_dump(),
+    )
 
 
 @api_router.get("/funasr/transcribe/path", response_model=AsrResponse)
@@ -42,61 +61,105 @@ async def asr_upload(
     return transcribe_from_file_item(file_item)
 
 
-@api_router.post("/funasr/transcribe/stream")
+@api_router.websocket("/funasr/transcribe/stream")
 async def asr_stream_pcm16(
-    request: Request,
-    sample_rate: int | None = Query(None),
-    channels: int | None = Query(None),
-) -> StreamingResponse:
+    websocket: WebSocket,
+    sample_rate: int | None = None,
+    channels: int | None = None,
+) -> None:
     settings = get_settings()
     expected_channels = settings.streaming_channels
     expected_sample_rate = sample_rate or settings.streaming_sample_rate
 
     if channels is not None and channels != expected_channels:
-        raise HTTPException(
-            status_code=400,
-            detail=f"unsupported channels={channels}, expected {expected_channels}",
-        )
+        await websocket.close(code=1008, reason=f"unsupported channels={channels}, expected {expected_channels}")
+        return
     if expected_sample_rate != settings.streaming_sample_rate:
-        raise HTTPException(
-            status_code=400,
-            detail=(
+        await websocket.close(
+            code=1008,
+            reason=(
                 f"unsupported sample_rate={expected_sample_rate}, "
                 f"expected {settings.streaming_sample_rate}"
             ),
         )
+        return
 
-    async def event_generator():
-        session = create_pcm16_stream_session(sample_rate=expected_sample_rate)
-        received_any = False
-        try:
-            async for chunk in request.stream():
-                if not chunk:
+    await websocket.accept()
+
+    session = create_pcm16_stream_session(sample_rate=expected_sample_rate)
+    pcm_tmp = tempfile.NamedTemporaryFile(suffix=".pcm", delete=False)
+    pcm_path = Path(pcm_tmp.name)
+    pcm_tmp.close()
+    wav_path: Path | None = None
+
+    received_any = False
+    pending_bytes = b""
+    try:
+        with pcm_path.open("wb") as pcm_file:
+            while True:
+                message = await websocket.receive()
+                if message.get("type") == "websocket.disconnect":
+                    break
+
+                chunk = message.get("bytes")
+                if chunk is not None:
+                    if not chunk:
+                        continue
+                    received_any = True
+
+                    # Keep persisted stream bytes aligned to PCM16 frames.
+                    data = pending_bytes + chunk
+                    aligned_size = (len(data) // 2) * 2
+                    aligned_chunk = data[:aligned_size]
+                    pending_bytes = data[aligned_size:]
+
+                    if aligned_chunk:
+                        pcm_file.write(aligned_chunk)
+
+                    text = session.feed(aligned_chunk)
+                    if text:
+                        await _send_ws_event(websocket, "partial", text, False)
                     continue
-                received_any = True
-                text = session.feed(chunk)
-                if text:
-                    yield _format_sse(
-                        AsrStreamEvent(type="partial", text=text, is_final=False),
-                    )
 
-            if not received_any:
-                yield _format_sse(
-                    AsrStreamEvent(type="error", text="empty stream", is_final=True),
+                text_message = message.get("text")
+                if text_message is None:
+                    await _send_ws_event(websocket, "error", "unsupported frame", True)
+                    continue
+
+                try:
+                    AsrWsControl.model_validate_json(text_message)
+                except ValidationError:
+                    await _send_ws_event(websocket, "error", "unknown control message", False)
+                    continue
+
+                if not received_any:
+                    await _send_ws_event(websocket, "error", "empty stream", True)
+                    return
+
+                final_text = session.finalize()
+                await _send_ws_event(websocket, "final", final_text, True)
+
+                wav_tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+                wav_path = Path(wav_tmp.name)
+                wav_tmp.close()
+
+                _pcm_to_wav(
+                    pcm_path=pcm_path,
+                    wav_path=wav_path,
+                    sample_rate=expected_sample_rate,
+                    channels=expected_channels,
                 )
+                full_response = transcribe_from_path(str(wav_path))
+                await _send_ws_event(websocket, "full", full_response.text, True)
                 return
-
-            final_text = session.finalize()
-            yield _format_sse(
-                AsrStreamEvent(type="final", text=final_text, is_final=True),
-            )
-        except Exception as exc:
-            yield _format_sse(
-                AsrStreamEvent(type="error", text=str(exc), is_final=True),
-            )
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-    )
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        try:
+            await _send_ws_event(websocket, "error", str(exc), True)
+        except Exception:
+            pass
+    finally:
+        pcm_path.unlink(missing_ok=True)
+        if wav_path is not None:
+            wav_path.unlink(missing_ok=True)
