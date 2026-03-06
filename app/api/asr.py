@@ -64,25 +64,10 @@ async def asr_upload(
 @api_router.websocket("/funasr/transcribe/stream")
 async def asr_stream_pcm16(
     websocket: WebSocket,
-    sample_rate: int | None = None,
-    channels: int | None = None,
 ) -> None:
     settings = get_settings()
     expected_channels = settings.streaming_channels
-    expected_sample_rate = sample_rate or settings.streaming_sample_rate
-
-    if channels is not None and channels != expected_channels:
-        await websocket.close(code=1008, reason=f"unsupported channels={channels}, expected {expected_channels}")
-        return
-    if expected_sample_rate != settings.streaming_sample_rate:
-        await websocket.close(
-            code=1008,
-            reason=(
-                f"unsupported sample_rate={expected_sample_rate}, "
-                f"expected {settings.streaming_sample_rate}"
-            ),
-        )
-        return
+    expected_sample_rate = settings.streaming_sample_rate
 
     await websocket.accept()
 
