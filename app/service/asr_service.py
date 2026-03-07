@@ -1,8 +1,7 @@
 from app.api.schemas import AsrResponse
 from app.domain import FileItem, ModelBundle
-from app.domain import create_pcm16_stream_session as create_domain_pcm16_stream_session
 from app.domain import infer_from_file_item, infer_from_path
-from app.domain.funasr_infer import Pcm16StreamSession
+from funasr import AutoModel
 
 _model_bundle: ModelBundle | None = None
 _init_error: str | None = None
@@ -40,5 +39,6 @@ def transcribe_from_path(wav_path: str) -> AsrResponse:
     return infer_from_path(_get_bundle(), wav_path)
 
 
-def create_pcm16_stream_session(sample_rate: int) -> Pcm16StreamSession:
-    return create_domain_pcm16_stream_session(_get_bundle(), sample_rate=sample_rate)
+def get_stream_and_offline_models() -> tuple[AutoModel, AutoModel]:
+    bundle = _get_bundle()
+    return bundle.streaming_funasr_model, bundle.funasr_model

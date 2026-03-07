@@ -7,16 +7,6 @@ class AsrResponse(BaseModel):
     text: str
 
 
-class AsrStreamEvent(BaseModel):
-    type: Literal["partial", "final", "full", "error"]
-    text: str
-    is_final: bool = False
-
-
-class AsrWsControl(BaseModel):
-    type: Literal["end"]
-
-
 class SpeakerEmbeddingResponse(BaseModel):
     embedding_b64: str
 

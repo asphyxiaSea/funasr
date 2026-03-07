@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Dict
 
 from funasr import AutoModel
 
@@ -9,8 +8,7 @@ from app.config.settings import Settings
 @dataclass(frozen=True)
 class ModelBundle:
     funasr_model: AutoModel
-    streaming_funasr_model: AutoModel | None
-    streaming_kwargs: Dict[str, object]
+    streaming_funasr_model: AutoModel
 
 
 def load_models(settings: Settings) -> ModelBundle:
@@ -24,22 +22,13 @@ def load_models(settings: Settings) -> ModelBundle:
         disable_update=True,
     )
 
-    streaming_funasr_model: AutoModel | None = None
-    if settings.funasr_stream_asr_model_dir:
-        streaming_funasr_model = AutoModel(
-            model=settings.funasr_stream_asr_model_dir,
-            device=settings.device,
-            disable_update=True,
-        )
-
-    streaming_kwargs: Dict[str, object] = {
-        "chunk_size": settings.streaming_chunk_size,
-        "encoder_chunk_look_back": settings.streaming_encoder_chunk_look_back,
-        "decoder_chunk_look_back": settings.streaming_decoder_chunk_look_back,
-    }
+    streaming_funasr_model = AutoModel(
+        model=settings.funasr_stream_asr_model_dir,
+        device=settings.device,
+        disable_update=True,
+    )
 
     return ModelBundle(
         funasr_model=funasr_model,
         streaming_funasr_model=streaming_funasr_model,
-        streaming_kwargs=streaming_kwargs,
     )

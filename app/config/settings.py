@@ -18,21 +18,7 @@ class Settings:
     funasr_punc_model_dir: str
     # funasr_spk模型
     funasr_spk_model_dir: str
-    # 流式采样率
-    streaming_sample_rate: int
-    # 流式声道数
-    streaming_channels: int
-    # 流式分片参数
-    streaming_chunk_size: list[int]
-    # 流式encoder回看
-    streaming_encoder_chunk_look_back: int
-    # 流式decoder回看
-    streaming_decoder_chunk_look_back: int
     device: str
-
-
-def _parse_chunk_size(value: str) -> list[int]:
-    return [int(part.strip()) for part in value.split(",") if part.strip()]
 
 
 @lru_cache
@@ -61,10 +47,5 @@ def get_settings() -> Settings:
             "FUNASR_SPK_MODEL_DIR",
             "models/SPKmodels/cam++",
         ),
-        streaming_sample_rate=int(os.getenv("STREAMING_SAMPLE_RATE", "16000")),
-        streaming_channels=int(os.getenv("STREAMING_CHANNELS", "1")),
-        streaming_chunk_size=_parse_chunk_size(os.getenv("STREAMING_CHUNK_SIZE", "0,10,5")),
-        streaming_encoder_chunk_look_back=int(os.getenv("STREAMING_ENCODER_CHUNK_LOOK_BACK", "4")),
-        streaming_decoder_chunk_look_back=int(os.getenv("STREAMING_DECODER_CHUNK_LOOK_BACK", "1")),
         device=os.getenv("ASR_DEVICE", "cuda:1"),
     )

@@ -1,41 +1,89 @@
-from funasr import AutoModel
-import torch.nn.functional as F
-import numpy as np
-import torch
-import base64
+import asyncio
+import wave
+import json
+import websockets
 
-model = AutoModel(model="models/SPKmodels/cam++")
+WS_URL = "ws://127.0.0.1:8010/funasr/transcribe/stream"
+WAV_FILE = "assets/speaker1_b_cn_16k.wav"
 
-# 1. Generate speaker1 embedding
-# speaker1_emb1 = model.generate(input="models/SPKmodels/cam++/examples/speaker1_a_cn_16k.wav")[0]["spk_embedding"]
-
-# speaker1_emb1 = F.normalize(speaker1_emb1, p=2, dim=1)
-
-# 将向量转换为二进制数据并转换为Base64字符串
-# vector1  = speaker1_emb1.detach().cpu().numpy().astype(np.float32)
-# base64_str1 = base64.b64encode(vector1.tobytes()).decode("utf-8")
+CHUNK_MS = 500  # 每次发送500ms音频
+FINAL_TIMEOUT_SEC = 120
 
 
+async def stream_wav():
+    with wave.open(WAV_FILE, "rb") as wf:
+        sample_rate = wf.getframerate()
+        channels = wf.getnchannels()
+        sampwidth = wf.getsampwidth()
 
-base64_str1 = "BASE64_STRING_HERE"  # 替换为实际的Base64字符串
-# # 将Base64字符串解码回二进制数据，并转换为原始向量
-base64_str1 = base64.b64decode(base64_str1)
-vector1  = np.frombuffer(base64_str1, dtype=np.float32)
-vector1  = torch.tensor(vector1).unsqueeze(0)
+        if sampwidth != 2:
+            raise ValueError("Only PCM16 wav supported")
+
+        print("sample_rate:", sample_rate)
+        print("channels:", channels)
+
+        # 500ms chunk
+        frames_per_chunk = int(sample_rate * CHUNK_MS / 1000)
+
+        async with websockets.connect(WS_URL) as ws:
+            print("connected")
+
+            terminal_event = asyncio.Event()
+            terminal_payload: dict[str, str | None] = {"type": None, "text": None}
+
+            async def receiver():
+                try:
+                    async for message in ws:
+                        print("SERVER:", message)
+                        try:
+                            payload = json.loads(message)
+                        except json.JSONDecodeError:
+                            continue
+
+                        event_type = payload.get("type")
+                        if event_type in ("full", "error"):
+                            terminal_payload["type"] = event_type
+                            text = payload.get("text")
+                            terminal_payload["text"] = text if isinstance(text, str) else None
+                            terminal_event.set()
+                            return
+                except websockets.ConnectionClosed:
+                    print(f"SERVER CLOSED: code={ws.close_code}, reason={ws.close_reason}")
+                    terminal_payload["type"] = "closed"
+                    terminal_event.set()
+
+            recv_task = asyncio.create_task(receiver())
+
+            while True:
+                frames = wf.readframes(frames_per_chunk)
+                if not frames:
+                    break
+
+                # 发送PCM bytes
+                await ws.send(frames)
+
+                # 模拟实时
+                await asyncio.sleep(CHUNK_MS / 1000)
+
+            print("audio finished")
+
+            # 发送结束控制消息
+            await ws.send(json.dumps({"type": "end"}))
+
+            try:
+                await asyncio.wait_for(terminal_event.wait(), timeout=FINAL_TIMEOUT_SEC)
+            except asyncio.TimeoutError:
+                print(f"Timeout: no full/error event within {FINAL_TIMEOUT_SEC}s")
+
+            if not recv_task.done():
+                recv_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await recv_task
+
+            print("terminal:", terminal_payload)
 
 
-# speaker1_emb2 = model.generate(input="models/SPKmodels/cam++/examples/speaker1_b_cn_16k.wav")[0]["spk_embedding"]
+if __name__ == "__main__":
+    import contextlib
 
-# speaker1_emb2 = F.normalize(speaker1_emb2, p=2, dim=1)
-# vector2 = speaker1_emb2.detach().cpu().numpy().astype(np.float32)
-# binary2 = vector2.tobytes()
-# base64_str2 = base64.b64encode(binary2).decode("utf-8")
-
-# base64_str2 = base64.b64decode(base64_str2)
-# vector2 = np.frombuffer(base64_str2, dtype=np.float32)
-# vector2 = torch.tensor(vector2).unsqueeze(0)
-
-
-# # 相似度
-# score = F.cosine_similarity(vector1, vector2, dim=1)
-# print("相似度:", score.item())
+    asyncio.run(stream_wav())
