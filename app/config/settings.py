@@ -12,7 +12,6 @@ class Settings:
     vad_model_dir: str
     punc_model_dir: str
     spk_model_dir: str
-    device: str
     chunk_size: tuple[int, int, int]
     encoder_chunk_look_back: int
     decoder_chunk_look_back: int
@@ -37,7 +36,6 @@ def get_settings() -> Settings:
         vad_model_dir=os.getenv("FUNASR_VAD_MODEL_DIR", "models/VADmodels/speech_fsmn_vad_zh"),
         punc_model_dir=os.getenv("FUNASR_PUNC_MODEL_DIR", "models/PUNCmodels/ct-punc"),
         spk_model_dir=os.getenv("FUNASR_SPK_MODEL_DIR", "models/SPKmodels/cam++"),
-        device=os.getenv("FUNASR_DEVICE", "cuda:0"),
         chunk_size=(0, 10, 5),
         encoder_chunk_look_back=4,
         decoder_chunk_look_back=1,

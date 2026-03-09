@@ -29,7 +29,7 @@ app = create_app()
 
 
 def main() -> None:
-    uvicorn.run(app, host="0.0.0.0", port=8010, workers=1)
+    uvicorn.run(app, host="0.0.0.0", port=8010)
 
 
 if __name__ == "__main__":

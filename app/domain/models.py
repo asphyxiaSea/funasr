@@ -25,7 +25,6 @@ def initialize_models(settings: Settings) -> None:
         stream_model = AutoModel(
             model=settings.stream_asr_model_dir,
             disable_update=True,
-            device=settings.device,
         )
         offline_model = AutoModel(
             model=settings.asr_model_dir,
@@ -33,12 +32,10 @@ def initialize_models(settings: Settings) -> None:
             punc_model=settings.punc_model_dir,
             spk_model=settings.spk_model_dir,
             disable_update=True,
-            device=settings.device,
         )
         spk_model = AutoModel(
             model=settings.spk_model_dir,
             disable_update=True,
-            device=settings.device,
         )
         _bundle = ModelBundle(
             offline_model=offline_model,
