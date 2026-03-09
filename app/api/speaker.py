@@ -1,7 +1,9 @@
+from pathlib import Path
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from app.api.schemas import SpeakerEmbeddingResponse
-from app.service.asr_service import spk_embedding_upload
+from app.service.speaker_service import speaker_embedding_path, speaker_embedding_upload
 
 router = APIRouter(tags=["speaker"])
 
@@ -13,5 +15,15 @@ async def spk_embedding(file: UploadFile = File(...)) -> SpeakerEmbeddingRespons
         raise HTTPException(status_code=400, detail="empty file")
 
     return SpeakerEmbeddingResponse(
-        embedding_b64=spk_embedding_upload(file_bytes=file_bytes, filename=file.filename or "audio.wav")
+        embedding_b64=speaker_embedding_upload(file_bytes=file_bytes, filename=file.filename or "audio.wav")
+    )
+
+
+@router.get("/funasr/speaker/embedding/path", response_model=SpeakerEmbeddingResponse)
+def spk_embedding_path(wav_path: str) -> SpeakerEmbeddingResponse:
+    if not Path(wav_path).is_file():
+        raise HTTPException(status_code=404, detail="wav_path not found")
+
+    return SpeakerEmbeddingResponse(
+        embedding_b64=speaker_embedding_path(wav_path)
     )

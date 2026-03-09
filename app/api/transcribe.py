@@ -5,7 +5,7 @@ from fastapi import APIRouter, File, HTTPException, UploadFile, WebSocket, WebSo
 from app.api.schemas import TranscribeResponse
 from app.config.settings import get_settings
 from app.domain.streaming import StreamSession
-from app.service.asr_service import (
+from app.service.transcribe_service import (
     finalize_stream,
     process_stream_bytes,
     rerun_full_audio,
@@ -60,8 +60,8 @@ async def asr_stream(websocket: WebSocket) -> None:
             final_text = finalize_stream(session=session, settings=settings)
             await websocket.send_json({"type": "final", "text": final_text})
 
-            full_text = rerun_full_audio(session=session)
-            await websocket.send_json({"type": "full", "text": full_text})
+            full_result = rerun_full_audio(session=session)
+            await websocket.send_json({"type": "full", "result": full_result})
             return
 
     except WebSocketDisconnect:

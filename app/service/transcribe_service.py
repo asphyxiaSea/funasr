@@ -1,5 +1,4 @@
 import tempfile
-import base64
 from pathlib import Path
 
 import numpy as np
@@ -11,16 +10,6 @@ from app.domain.streaming import StreamSession
 
 def _pcm16_to_float32(pcm_bytes: bytes | bytearray) -> np.ndarray:
     return np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-
-
-def _embedding_to_base64(embedding: np.ndarray | list[float]) -> str:
-    vector = np.asarray(embedding, dtype=np.float32).reshape(-1)
-    if vector.size == 0:
-        return ""
-    norm = np.linalg.norm(vector)
-    if norm > 0:
-        vector = vector / norm
-    return base64.b64encode(vector.tobytes()).decode("utf-8")
 
 
 def transcribe_path(wav_path: str) -> str:
@@ -37,23 +26,6 @@ def transcribe_upload(file_bytes: bytes, filename: str) -> str:
 
     try:
         return transcribe_path(tmp_path)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
-
-
-def spk_embedding_upload(file_bytes: bytes, filename: str) -> str:
-    models = get_models()
-    suffix = Path(filename).suffix or ".wav"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(file_bytes)
-        tmp_path = tmp.name
-
-    try:
-        result = models.spk_model.generate(input=tmp_path)
-        embedding = result[0].get("spk_embedding") if result else None
-        if embedding is None:
-            return ""
-        return _embedding_to_base64(embedding)
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -112,8 +84,8 @@ def finalize_stream(session: StreamSession, settings: Settings) -> str:
     return result[0]["text"] if result else ""
 
 
-def rerun_full_audio(session: StreamSession) -> str:
+def rerun_full_audio(session: StreamSession):
     models = get_models()
     full_audio = _pcm16_to_float32(session.full_audio_buffer)
     result = models.offline_model.generate(input=full_audio)
-    return result[0]["text"] if result else ""
+    return result
