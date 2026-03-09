@@ -1,56 +1,119 @@
 import tempfile
+import base64
 from pathlib import Path
 
-from app.api.schemas import AsrResponse
-from app.domain import FileItem, ModelBundle
-from funasr import AutoModel
+import numpy as np
 
-_model_bundle: ModelBundle | None = None
-_init_error: str | None = None
-
-
-def init_models(bundle: ModelBundle) -> None:
-    global _model_bundle, _init_error
-    _model_bundle = bundle
-    _init_error = None
+from app.config.settings import Settings
+from app.domain.models import get_models
+from app.domain.streaming import StreamSession
 
 
-def set_init_error(message: str) -> None:
-    global _model_bundle, _init_error
-    _model_bundle = None
-    _init_error = message
+def _pcm16_to_float32(pcm_bytes: bytes | bytearray) -> np.ndarray:
+    return np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
 
-def get_model_status() -> tuple[bool, str | None]:
-    if _model_bundle is not None:
-        return True, None
-    return False, _init_error or "Models not initialized"
+def _embedding_to_base64(embedding: np.ndarray | list[float]) -> str:
+    vector = np.asarray(embedding, dtype=np.float32).reshape(-1)
+    if vector.size == 0:
+        return ""
+    norm = np.linalg.norm(vector)
+    if norm > 0:
+        vector = vector / norm
+    return base64.b64encode(vector.tobytes()).decode("utf-8")
 
 
-def _get_bundle() -> ModelBundle:
-    if _model_bundle is None:
-        raise RuntimeError("Models not initialized")
-    return _model_bundle
+def transcribe_path(wav_path: str) -> str:
+    models = get_models()
+    result = models.offline_model.generate(input=wav_path)
+    return result[0]["text"] if result else ""
 
 
-def transcribe_from_file_item(file_item: FileItem) -> AsrResponse:
-    suffix = Path(file_item.filename).suffix or ".wav"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp.write(file_item.data)
+def transcribe_upload(file_bytes: bytes, filename: str) -> str:
+    suffix = Path(filename).suffix or ".wav"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(file_bytes)
         tmp_path = tmp.name
 
     try:
-        return transcribe_from_path(tmp_path)
+        return transcribe_path(tmp_path)
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
 
-def transcribe_from_path(wav_path: str) -> AsrResponse:
-    bundle = _get_bundle()
-    res = bundle.funasr_model.generate(input=[wav_path], cache={}, batch_size_s=300, batch_size_threshold_s=60)
-    return AsrResponse(text=res[0]["text"])
+def spk_embedding_upload(file_bytes: bytes, filename: str) -> str:
+    models = get_models()
+    suffix = Path(filename).suffix or ".wav"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(file_bytes)
+        tmp_path = tmp.name
+
+    try:
+        result = models.spk_model.generate(input=tmp_path)
+        embedding = result[0].get("spk_embedding") if result else None
+        if embedding is None:
+            return ""
+        return _embedding_to_base64(embedding)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
-def get_stream_and_offline_models() -> tuple[AutoModel, AutoModel]:
-    bundle = _get_bundle()
-    return bundle.streaming_funasr_model, bundle.funasr_model
+def process_stream_bytes(session: StreamSession, chunk_bytes: bytes, settings: Settings) -> list[str]:
+    models = get_models()
+    session.append_chunk(chunk_bytes)
+
+    frame_bytes = settings.chunk_stride * 2
+    partials: list[str] = []
+
+    while True:
+        frame = session.pop_stream_frame(frame_bytes)
+        if frame is None:
+            break
+
+        speech_chunk = _pcm16_to_float32(frame)
+        result = models.stream_model.generate(
+            input=speech_chunk,
+            cache=session.cache,
+            is_final=False,
+            chunk_size=list(settings.chunk_size),
+            encoder_chunk_look_back=settings.encoder_chunk_look_back,
+            decoder_chunk_look_back=settings.decoder_chunk_look_back,
+        )
+        if result and result[0].get("text"):
+            partials.append(result[0]["text"])
+
+    return partials
+
+
+def finalize_stream(session: StreamSession, settings: Settings) -> str:
+    models = get_models()
+
+    if session.audio_buffer:
+        speech_chunk = _pcm16_to_float32(session.audio_buffer)
+        result = models.stream_model.generate(
+            input=speech_chunk,
+            cache=session.cache,
+            is_final=True,
+            chunk_size=list(settings.chunk_size),
+            encoder_chunk_look_back=settings.encoder_chunk_look_back,
+            decoder_chunk_look_back=settings.decoder_chunk_look_back,
+        )
+        session.audio_buffer.clear()
+    else:
+        result = models.stream_model.generate(
+            input=None,
+            cache=session.cache,
+            is_final=True,
+            chunk_size=list(settings.chunk_size),
+            encoder_chunk_look_back=settings.encoder_chunk_look_back,
+            decoder_chunk_look_back=settings.decoder_chunk_look_back,
+        )
+
+    return result[0]["text"] if result else ""
+
+
+def rerun_full_audio(session: StreamSession) -> str:
+    models = get_models()
+    full_audio = _pcm16_to_float32(session.full_audio_buffer)
+    result = models.offline_model.generate(input=full_audio)
+    return result[0]["text"] if result else ""

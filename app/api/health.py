@@ -1,14 +1,14 @@
 from fastapi import APIRouter
 
-from app.api.schemas import HealthResponse
-from app.service.asr_service import get_model_status
+from app.domain.models import get_init_error, is_ready
 
-api_router = APIRouter()
+router = APIRouter(tags=["health"])
 
 
-@api_router.get("/health", response_model=HealthResponse)
-def health() -> HealthResponse:
-    ready, detail = get_model_status()
-    if ready:
-        return HealthResponse(status="ok", ready=True, detail=None)
-    return HealthResponse(status="degraded", ready=False, detail=detail)
+@router.get("/health")
+def health() -> dict:
+    ready = is_ready()
+    return {
+        "ok": ready,
+        "error": None if ready else (get_init_error() or "models not initialized"),
+    }

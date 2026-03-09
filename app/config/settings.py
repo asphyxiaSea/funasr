@@ -1,24 +1,27 @@
+import os
 from dataclasses import dataclass
 from functools import lru_cache
-import os
 from pathlib import Path
 
 
 @dataclass(frozen=True)
 class Settings:
-    # 项目path
     base_dir: Path
-    # funasr_asr模型
-    funasr_asr_model_dir: str
-    # funasr_streaming_asr模型
-    funasr_stream_asr_model_dir: str
-    # funasr_vad模型
-    funasr_vad_model_dir: str
-    # funasr_punc模型
-    funasr_punc_model_dir: str
-    # funasr_spk模型
-    funasr_spk_model_dir: str
+    asr_model_dir: str
+    stream_asr_model_dir: str
+    vad_model_dir: str
+    punc_model_dir: str
+    spk_model_dir: str
     device: str
+    chunk_size: tuple[int, int, int]
+    encoder_chunk_look_back: int
+    decoder_chunk_look_back: int
+    sample_rate: int
+
+    @property
+    def chunk_stride(self) -> int:
+        # Keep text3.py-compatible stride semantics (10 * 960 samples).
+        return self.chunk_size[1] * 960
 
 
 @lru_cache
@@ -27,25 +30,16 @@ def get_settings() -> Settings:
 
     return Settings(
         base_dir=base_dir,
-        funasr_asr_model_dir=os.getenv(
-            "FUNASR_ASR_MODEL_DIR",
-            "models/ASRmodels/paraformer-zh",
+        asr_model_dir=os.getenv("FUNASR_ASR_MODEL_DIR", "models/ASRmodels/paraformer-zh"),
+        stream_asr_model_dir=os.getenv(
+            "FUNASR_STREAM_ASR_MODEL_DIR", "models/ASRmodels/paraformer-zh-streaming"
         ),
-        funasr_stream_asr_model_dir=os.getenv(
-            "FUNASR_STREAM_ASR_MODEL_DIR",
-            "models/ASRmodels/paraformer-zh-streaming",
-        ),
-        funasr_vad_model_dir=os.getenv(
-            "FUNASR_VAD_MODEL_DIR",
-            "models/VADmodels/speech_fsmn_vad_zh",
-        ),
-        funasr_punc_model_dir=os.getenv(
-            "FUNASR_PUNC_MODEL_DIR",
-            "models/PUNCmodels/ct-punc",
-        ),
-        funasr_spk_model_dir=os.getenv(
-            "FUNASR_SPK_MODEL_DIR",
-            "models/SPKmodels/cam++",
-        ),
-        device=os.getenv("FUNASR_DEVICE", "cuda:1"),
+        vad_model_dir=os.getenv("FUNASR_VAD_MODEL_DIR", "models/VADmodels/speech_fsmn_vad_zh"),
+        punc_model_dir=os.getenv("FUNASR_PUNC_MODEL_DIR", "models/PUNCmodels/ct-punc"),
+        spk_model_dir=os.getenv("FUNASR_SPK_MODEL_DIR", "models/SPKmodels/cam++"),
+        device=os.getenv("FUNASR_DEVICE", "cuda:0"),
+        chunk_size=(0, 10, 5),
+        encoder_chunk_look_back=4,
+        decoder_chunk_look_back=1,
+        sample_rate=16000,
     )

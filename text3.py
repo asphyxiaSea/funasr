@@ -1,7 +1,10 @@
 import numpy as np
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from funasr import AutoModel
 import uvicorn
+import time
+import tempfile
+import shutil
 
 app = FastAPI()
 
@@ -14,13 +17,73 @@ sample_rate = 16000
 chunk_stride = chunk_size[1] * 960  # 600ms
 
 # 模型加载
-stream_model = AutoModel(model="models/ASRmodels/paraformer-zh-streaming")
+asr_stream_model = AutoModel(model="models/ASRmodels/paraformer-zh-streaming",
+                             disable_update=True)
+
+
 
 # 全量模型（通常用非streaming模型）
-offline_model = AutoModel(model="models/ASRmodels/paraformer-zh")
+funasr_model = AutoModel(model="models/ASRmodels/paraformer-zh",
+                      vad_model="models/VADmodels/speech_fsmn_vad_zh",
+                      punc_model="models/PUNCmodels/ct-punc",
+                      spk_model="models/SPKmodels/cam++",
+                      disable_update=True)
+
+# 说话人验证模型（如果需要单独调用说话人验证功能，可以在这里加载）
+spk_embedding_model = AutoModel(model="models/SPKmodels/cam++", disable_update=True)
 
 
-@app.websocket("/asr/stream")
+
+@app.get("/funasr/transcribe/path")
+def asr_path(
+    wav_path: str,
+) -> str:
+    res = funasr_model.generate(input=wav_path)
+    return res[0]["text"] if res else ""
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+import base64
+
+
+def _embedding_to_base64(embedding: torch.Tensor) -> str:
+    normalized = F.normalize(embedding, p=2, dim=1)
+    vector = normalized.detach().cpu().numpy().astype(np.float32)
+    return base64.b64encode(vector.tobytes()).decode("utf-8")
+
+
+@app.get("/funasr/spk/embedding")
+def spk_embedding(
+    file: UploadFile = File(...),
+) -> str:
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+        
+    res = spk_embedding_model.generate(input=tmp_path)
+    embedding = res[0]["spk_embedding"] if res else []
+    embedding_base64 = _embedding_to_base64(torch.tensor(embedding)) if embedding else ""
+    return embedding_base64
+
+
+@app.post("/funasr/transcribe")
+async def asr_upload(
+file: UploadFile = File(...),
+) -> str:
+    # 创建临时文件
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    # FunASR 使用文件路径
+    res = funasr_model.generate(input=tmp_path)
+
+    return res[0]["text"] if res else ""
+
+
+@app.websocket("/funasr/transcribe/stream")
 async def asr_stream(ws: WebSocket):
     await ws.accept()
 
@@ -46,8 +109,8 @@ async def asr_stream(ws: WebSocket):
                         np.frombuffer(pcm, dtype=np.int16)
                         .astype(np.float32) / 32768
                     )
-
-                    res = stream_model.generate(
+                    t1 = time.perf_counter()
+                    res = asr_stream_model.generate(
                         input=speech_chunk,
                         cache=cache,
                         is_final=False,
@@ -55,7 +118,8 @@ async def asr_stream(ws: WebSocket):
                         encoder_chunk_look_back=encoder_chunk_look_back,
                         decoder_chunk_look_back=decoder_chunk_look_back,
                     )
-
+                    t2 = time.perf_counter()
+                    print("stream infer0:", t2 - t1)
                     if res and res[0]["text"]:
                         await ws.send_json({
                             "type": "partial",
@@ -75,7 +139,7 @@ async def asr_stream(ws: WebSocket):
                         .astype(np.float32) / 32768
                     )
 
-                    res = stream_model.generate(
+                    res = asr_stream_model.generate(
                         input=speech_chunk,
                         cache=cache,
                         is_final=True,
@@ -84,7 +148,7 @@ async def asr_stream(ws: WebSocket):
                         decoder_chunk_look_back=decoder_chunk_look_back,
                     )
                 else:
-                    res = stream_model.generate(
+                    res = asr_stream_model.generate(
                         input=None,
                         cache=cache,
                         is_final=True,
@@ -106,7 +170,7 @@ async def asr_stream(ws: WebSocket):
                     .astype(np.float32) / 32768
                 )
 
-                full_res = offline_model.generate(input=full_audio)
+                full_res = funasr_model.generate(input=full_audio)
 
                 await ws.send_json({
                     "type": "full",

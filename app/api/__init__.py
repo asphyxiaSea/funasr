@@ -1,12 +1,10 @@
 from fastapi import APIRouter
 
-from app.api.asr import api_router as asr_router
-from app.api.health import api_router as health_router
-from app.api.spk import api_router as spk_router
+from .health import router as health_router
+from .speaker import router as speaker_router
+from .transcribe import router as transcribe_router
 
 api_router = APIRouter()
-api_router.include_router(asr_router)
 api_router.include_router(health_router)
-api_router.include_router(spk_router)
-
-__all__ = ["api_router"]
+api_router.include_router(transcribe_router)
+api_router.include_router(speaker_router)

@@ -1,31 +1,36 @@
 import logging
 
+import uvicorn
 from fastapi import FastAPI
 
 from app.api import api_router
 from app.config.settings import get_settings
-from app.domain.funasr_loader import load_models
-from app.service.asr_service import init_models, set_init_error
-
+from app.domain.models import initialize_models
 
 logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
-	app = FastAPI(title="FunASR Service")
-	app.include_router(api_router)
+    app = FastAPI(title="FunASR Service")
+    app.include_router(api_router)
 
-	@app.on_event("startup")
-	def _startup() -> None:
-		try:
-			settings = get_settings()
-			bundle = load_models(settings)
-			init_models(bundle)
-		except Exception as exc:
-			logger.exception("Failed to initialize models on startup")
-			set_init_error(str(exc))
+    @app.on_event("startup")
+    def _startup() -> None:
+        settings = get_settings()
+        try:
+            initialize_models(settings)
+        except Exception:
+            logger.exception("Failed to initialize models on startup")
 
-	return app
+    return app
 
 
 app = create_app()
+
+
+def main() -> None:
+    uvicorn.run(app, host="0.0.0.0", port=8010, workers=1)
+
+
+if __name__ == "__main__":
+    main()
