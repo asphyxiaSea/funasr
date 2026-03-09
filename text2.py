@@ -2,7 +2,7 @@ import asyncio
 import wave
 import websockets
 
-WS_URL = "ws://127.0.0.1:8010/asr/stream"
+WS_URL = "ws://127.0.0.1:8010/funasr/transcribe/stream"
 WAV_FILE = "assets/asr_example.wav"
 
 SAMPLE_RATE = 16000

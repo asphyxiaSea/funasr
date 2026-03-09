@@ -47,5 +47,5 @@ def get_settings() -> Settings:
             "FUNASR_SPK_MODEL_DIR",
             "models/SPKmodels/cam++",
         ),
-        device=os.getenv("ASR_DEVICE", "cuda:1"),
+        device=os.getenv("FUNASR_DEVICE", "cuda:1"),
     )

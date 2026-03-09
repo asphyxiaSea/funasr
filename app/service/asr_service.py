@@ -1,6 +1,8 @@
+import tempfile
+from pathlib import Path
+
 from app.api.schemas import AsrResponse
 from app.domain import FileItem, ModelBundle
-from app.domain import infer_from_file_item, infer_from_path
 from funasr import AutoModel
 
 _model_bundle: ModelBundle | None = None
@@ -32,11 +34,21 @@ def _get_bundle() -> ModelBundle:
 
 
 def transcribe_from_file_item(file_item: FileItem) -> AsrResponse:
-    return infer_from_file_item(_get_bundle(), file_item)
+    suffix = Path(file_item.filename).suffix or ".wav"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(file_item.data)
+        tmp_path = tmp.name
+
+    try:
+        return transcribe_from_path(tmp_path)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
 
 
 def transcribe_from_path(wav_path: str) -> AsrResponse:
-    return infer_from_path(_get_bundle(), wav_path)
+    bundle = _get_bundle()
+    res = bundle.funasr_model.generate(input=[wav_path], cache={}, batch_size_s=300, batch_size_threshold_s=60)
+    return AsrResponse(text=res[0]["text"])
 
 
 def get_stream_and_offline_models() -> tuple[AutoModel, AutoModel]:

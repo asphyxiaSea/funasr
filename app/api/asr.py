@@ -42,7 +42,7 @@ async def asr_upload(
     return transcribe_from_file_item(file_item)
 
 
-@api_router.websocket("/asr/stream")
+@api_router.websocket("/funasr/transcribe/stream")
 async def asr_stream(websocket: WebSocket) -> None:
     await websocket.accept()
     stream_model, offline_model = get_stream_and_offline_models()

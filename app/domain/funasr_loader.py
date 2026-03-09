@@ -19,13 +19,11 @@ def load_models(settings: Settings) -> ModelBundle:
         punc_model=settings.funasr_punc_model_dir,
         spk_model=settings.funasr_spk_model_dir,
         device=settings.device,
-        disable_update=True,
     )
 
     streaming_funasr_model = AutoModel(
         model=settings.funasr_stream_asr_model_dir,
         device=settings.device,
-        disable_update=True,
     )
 
     return ModelBundle(
