@@ -62,10 +62,12 @@ def spk_embedding(
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
-        
+
     res = spk_embedding_model.generate(input=tmp_path)
-    embedding = res[0]["spk_embedding"] if res else []
-    embedding_base64 = _embedding_to_base64(torch.tensor(embedding)) if embedding else ""
+    embedding = res[0]["spk_embedding"]
+    norm_embedding = F.normalize(embedding, p=2, dim=1)
+    vector  = norm_embedding.detach().cpu().numpy().astype(np.float32)
+    embedding_base64 = base64.b64encode(vector.tobytes()).decode("utf-8")
     return embedding_base64
 
 
@@ -175,7 +177,7 @@ async def asr_stream(ws: WebSocket):
 
                 await ws.send_json({
                     "type": "full",
-                    "text": full_res[0]["text"] if full_res else ""
+                    "results": full_res if full_res else ""
                 })
 
                 return
