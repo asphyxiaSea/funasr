@@ -5,7 +5,6 @@ import uvicorn
 import time
 import tempfile
 import shutil 
-import numpy as np
 import torch
 import torch.nn.functional as F
 import base64
@@ -69,7 +68,7 @@ spk_embedding_model = AutoModel(model="models/SPKmodels/cam++", disable_update=T
 
 
 
-@app.get("/funasr/transcribe/path")
+@app.get("/funasr/transcribe/path", response_model=TranscribeResponse)
 def asr_path(
     wav_path: str,
 ) -> TranscribeResponse:
@@ -84,7 +83,7 @@ def _embedding_to_base64(embedding: torch.Tensor) -> str:
     return base64.b64encode(vector.tobytes()).decode("utf-8")
 
 
-@app.get("/funasr/spk/embedding")
+@app.post("/funasr/spk/embedding", response_model=SpeakerEmbeddingResponse)
 def spk_embedding(
     file: UploadFile = File(...),
 ) -> SpeakerEmbeddingResponse:
@@ -106,7 +105,7 @@ def spk_embedding(
                 pass
 
 
-@app.post("/funasr/transcribe")
+@app.post("/funasr/transcribe", response_model=TranscribeResponse)
 async def asr_upload(
 file: UploadFile = File(...),
 ) -> TranscribeResponse:
@@ -154,7 +153,6 @@ async def asr_stream(ws: WebSocket):
                         np.frombuffer(pcm, dtype=np.int16)
                         .astype(np.float32) / 32768
                     )
-                    t1 = time.perf_counter()
                     res = asr_stream_model.generate(
                         input=speech_chunk,
                         cache=cache,
@@ -163,8 +161,6 @@ async def asr_stream(ws: WebSocket):
                         encoder_chunk_look_back=encoder_chunk_look_back,
                         decoder_chunk_look_back=decoder_chunk_look_back,
                     )
-                    t2 = time.perf_counter()
-                    print("stream infer0:", t2 - t1)
                     if res and res[0]["text"]:
                         await ws.send_json(
                             StreamMessage(type="partial", text=res[0]["text"]).model_dump()
