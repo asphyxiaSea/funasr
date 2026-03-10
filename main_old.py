@@ -35,6 +35,14 @@ class StreamFullMessage(BaseModel):
     type: str
     results: Any
 
+
+def _remove_timestamp_fields(data: Any) -> Any:
+    if isinstance(data, dict):
+        return {k: _remove_timestamp_fields(v) for k, v in data.items() if k != "timestamp"}
+    if isinstance(data, list):
+        return [_remove_timestamp_fields(item) for item in data]
+    return data
+
 # streaming参数
 chunk_size = [0, 10, 5]  # 600ms
 encoder_chunk_look_back = 4
@@ -204,9 +212,10 @@ async def asr_stream(ws: WebSocket):
                 )
 
                 full_res = funasr_model.generate(input=full_audio)
+                cleaned_full_res = _remove_timestamp_fields(full_res) if full_res else ""
 
                 await ws.send_json(
-                    StreamFullMessage(type="full", results=full_res if full_res else "").model_dump()
+                    StreamFullMessage(type="full", results=cleaned_full_res).model_dump()
                 )
 
                 return
