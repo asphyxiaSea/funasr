@@ -4,7 +4,12 @@ from funasr import AutoModel
 import uvicorn
 import time
 import tempfile
-import shutil
+import shutil 
+import numpy as np
+import torch
+import torch.nn.functional as F
+import base64
+
 
 app = FastAPI()
 
@@ -41,10 +46,6 @@ def asr_path(
     res = funasr_model.generate(input=wav_path)
     return res[0]["text"] if res else ""
 
-import numpy as np
-import torch
-import torch.nn.functional as F
-import base64
 
 
 def _embedding_to_base64(embedding: torch.Tensor) -> str:
